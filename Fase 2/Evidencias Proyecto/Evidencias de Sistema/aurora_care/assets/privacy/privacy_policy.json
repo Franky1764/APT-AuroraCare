@@ -1,0 +1,105 @@
+{
+  "title": "Política de Privacidad de AuroraCare",
+  "version": "1.0",
+  "updatedAt": "19 de noviembre de 2026",
+  "responsible": "Daniela Castillo Gallegos",
+  "address": "Santiago de Chile",
+  "email": "auroracareprivacidad@gmail.com",
+  "sections": [
+    {
+      "title": "Lo esencial",
+      "paragraphs": [
+        "AuroraCare es una herramienta de estimulación cognitiva con juegos de memoria, atención y motricidad para personas adultas. Sus resultados describen la práctica y pueden apoyar una conversación con un profesional de la salud. La app no entrega diagnósticos médicos.",
+        "La cuenta y las métricas se guardan por separado. Sus resultados se asocian a un código aleatorio, y el teléfono conserva la referencia que permite consultar ese historial desde su cuenta.",
+        "Desde «Mi perfil» puede abrir «Mis datos y privacidad» para consultar, corregir, descargar y eliminar los datos disponibles, retirar su consentimiento o contactar al equipo."
+      ]
+    },
+    {
+      "title": "Responsable y contacto",
+      "paragraphs": [
+        "La responsable del tratamiento de datos personales de AuroraCare es Daniela Castillo Gallegos, con domicilio en Santiago de Chile.",
+        "Para consultas, solicitudes y reclamos sobre sus datos, escriba a auroracareprivacidad@gmail.com. El equipo podrá verificar que usted es titular de la cuenta o que tiene autorización para representarlo."
+      ]
+    },
+    {
+      "title": "Qué datos usa la app",
+      "paragraphs": [
+        "Cuenta y decisiones. Se utiliza su correo, el nombre con que desea que lo llamen, el rol de la cuenta, su modo de uso y los registros de autorización. Firebase Authentication gestiona la contraseña.",
+        "Prácticas. Se registran el juego, el nivel, las fechas de inicio y término, aciertos, errores, tiempos, acciones realizadas y las métricas que correspondan al ejercicio. Cuando está disponible, se conserva el puntaje calculado por AuroraCare. El historial usa un código aleatorio y un identificador del dispositivo.",
+        "Perfil y preferencias locales. El teléfono guarda opciones de accesibilidad y avisos. Si elige una fotografía, se guarda una copia local para su perfil. Las respuestas y preguntas personales de «Mis recuerdos» se guardan en el dispositivo.",
+        "Vínculos. Se conservan los identificadores de las cuentas vinculadas, el estado y fecha de la invitación, y un resumen compartido de las prácticas. El vínculo usa datos de cuenta y no incorpora el código del perfil cognitivo.",
+        "Servicios técnicos. Firebase Analytics está integrado y puede recopilar eventos automáticos e identificadores técnicos de la instalación. La app no ofrece actualmente un interruptor para esa medición. Puede consultar o solicitar oposición al equipo de privacidad.",
+        "AuroraCare no solicita RUT, dirección personal ni ubicación precisa. El escáner utiliza la cámara para leer el QR. La respiración guiada no registra resultados de juego."
+      ]
+    },
+    {
+      "title": "Para qué se usan",
+      "paragraphs": [
+        "Los datos permiten mantener su acceso a la cuenta, recuperar la contraseña, guardar las prácticas autorizadas y mostrar resultados y tendencias cuando hay datos comparables suficientes.",
+        "Cuando usted vincula un cuidador, permiten compartir un resumen de actividad, mostrar los resultados por área y preparar informes de acompañamiento.",
+        "También permiten conservar sus preferencias y atender sus solicitudes de privacidad. AuroraCare no vende los datos ni los utiliza para publicidad o para decidir sobre seguros, créditos o empleo."
+      ]
+    },
+    {
+      "title": "Autorización y cuidador",
+      "paragraphs": [
+        "Antes de guardar métricas se solicita su autorización. Para compartir un resumen, la persona mayor genera un QR y acepta la vinculación con un cuidador. El cuidador puede consultar actividad reciente, resultados por área, historial compartido y reportes, incluso desde una primera práctica.",
+        "El resumen puede incluir fechas de práctica y el juego y resultado más recientes. Las respuestas personales de «Mis recuerdos» y el código del perfil cognitivo quedan fuera de ese resumen.",
+        "Desde «Cuidador vinculado» puede retirar el vínculo. El cuidador también puede desvincularse. La revocación confirmada por el servidor impide nuevas consultas al resumen compartido. Los archivos y copias que alguien haya guardado o recibido previamente permanecen fuera del control de la app.",
+        "Los avisos del cuidador dependen de su configuración y del permiso del teléfono. Una señal de resultados más bajos requiere repetirse en evaluaciones de días distintos para generar el aviso correspondiente."
+      ]
+    },
+    {
+      "title": "Servicios y reporte",
+      "paragraphs": [
+        "Google Firebase proporciona autenticación, almacenamiento y servicios técnicos. La identidad y los resultados se guardan en documentos separados. Parte del tratamiento de estos proveedores puede ocurrir fuera de Chile.",
+        "Cuando está configurado el servicio de análisis de AuroraCare, recibe métricas de las prácticas para calcular puntajes y señales con reglas del sistema. El resultado puede quedar pendiente si el servicio no está disponible.",
+        "OpenAI puede redactar el informe a partir de un resumen por área. Ese envío excluye nombre, correo e identificadores de cuenta, sesión o perfil. El cálculo de los resultados corresponde a AuroraCare.",
+        "Si el servicio de redacción falla, se utiliza una plantilla local. El PDF se prepara en el teléfono. Al compartirlo por correo, WhatsApp u otra aplicación, usted elige el destinatario y el archivo pasa a esa aplicación."
+      ]
+    },
+    {
+      "title": "Almacenamiento y seguridad",
+      "paragraphs": [
+        "Las prácticas se guardan en el teléfono y pueden sincronizarse con Firestore. La referencia del perfil cognitivo se conserva localmente por cuenta. Los datos de juego no incluyen el nombre ni el correo de la persona.",
+        "Las reglas de Firestore controlan los accesos a los documentos de identidad y a los vínculos. El código aleatorio del historial es sensible y debe mantenerse reservado. La separación de identidad y métricas reduce la asociación directa entre ambas.",
+        "El acceso al teléfono, los archivos exportados y los respaldos que realice su propietario también influyen en la protección de los datos. Evite compartir contraseñas, códigos QR o archivos personales con destinatarios que no haya elegido."
+      ]
+    },
+    {
+      "title": "Conservación y eliminación",
+      "paragraphs": [
+        "Los datos se conservan mientras sean necesarios para prestar el servicio y atender sus decisiones. La ventana de 28 días de los reportes es un período de consulta, no un plazo automático de borrado.",
+        "«Borrar mi historial y conservar mi cuenta» elimina las prácticas del perfil disponible en este teléfono y sus copias localizables en la nube, junto con «Mis recuerdos» de esa cuenta. También retira las invitaciones y vínculos de ese perfil. La cuenta permanece disponible.",
+        "«Eliminar mi cuenta y mis datos» realiza ese borrado y elimina la identidad y el acceso en Firebase Authentication. Se requiere confirmar la contraseña y la acción en pantalla. El proceso necesita conexión y puede quedar pendiente para reintentarlo si un paso falla.",
+        "Para impedir que escrituras atrasadas vuelvan a crear un historial eliminado, se conserva una marca técnica mínima bajo su código aleatorio, sin contenido de las prácticas ni identidad.",
+        "La referencia del historial es propia del dispositivo. Si utilizó otros dispositivos o existe un historial antiguo sin titular confirmado, escriba al equipo de privacidad para revisar qué datos pueden localizarse y verificar su titularidad. La eliminación desde este teléfono no garantiza borrar copias en otros dispositivos o PDF ya exportados.",
+        "La app no realiza actualmente borrado automático por inactividad."
+      ]
+    },
+    {
+      "title": "Acceso, corrección y copia",
+      "paragraphs": [
+        "Acceso. Puede consultar su nombre y correo y descargar una copia de la información disponible en «Mis datos y privacidad». La copia requiere conexión e incluye los datos de cuenta, los vínculos e invitaciones localizables y los datos del perfil disponible en este teléfono.",
+        "Rectificación. Puede corregir su nombre en la app. Para rectificar otros datos, incluido el correo de la cuenta, puede preparar una solicitud al equipo de privacidad.",
+        "Portabilidad. La descarga se ofrece como un archivo JSON. Si necesita información adicional o datos de otros dispositivos, puede solicitarla al equipo.",
+        "El archivo descargado puede contener información sensible. Usted decide dónde guardarlo y con quién compartirlo."
+      ]
+    },
+    {
+      "title": "Retiro del consentimiento, oposición y bloqueo",
+      "paragraphs": [
+        "Puede retirar su consentimiento para guardar métricas desde «Mis datos y privacidad». La app retira el acceso del cuidador al resumen, detiene el registro de nuevas prácticas de ese perfil y conserva el historial existente. Los ejercicios que requieren guardar resultados solicitarán autorización para volver a registrarlos.",
+        "Puede pedir oposición a un uso específico de sus datos o el bloqueo temporal mediante la solicitud de privacidad. Indique qué tratamiento desea detener o revisar, evitando incluir contraseñas o códigos QR.",
+        "Preparar el correo abre un borrador para que lo revise y envíe. La solicitud se recibe cuando usted la envía desde su aplicación de correo. El equipo podrá pedir información para verificar su identidad y comunicarle el resultado."
+      ]
+    },
+    {
+      "title": "Cambios y consultas",
+      "paragraphs": [
+        "Esta versión describe las funciones disponibles al incorporarse el centro de privacidad. Las modificaciones se publicarán en esta misma sección.",
+        "Para solicitar una explicación de los resultados, plantear dudas o ejercer sus derechos, contacte a Daniela Castillo Gallegos en auroracareprivacidad@gmail.com."
+      ]
+    }
+  ]
+}

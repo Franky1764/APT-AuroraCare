@@ -1,0 +1,387 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Los datos de comportamiento nunca llevan identidad.
+    function hasNoIdentityFields(data) {
+      return !data.keys().hasAny([
+        'uid', 'userId', 'userUID', 'email', 'displayName', 'name',
+        'adultUID', 'caregiverUID', 'adultUid', 'caregiverUid',
+        'ownerUID', 'ownerUid', 'authUID', 'authUid'
+      ]);
+    }
+
+    function consentDateEmpty(data) {
+      return !('consentDate' in data) || data.consentDate == null;
+    }
+
+    function allowedUserKeys(data) {
+      return data.keys().hasOnly([
+        'displayName', 'createdAt', 'consentGiven', 'consentDate',
+        'currentMode', 'disclaimerAcceptedAt', 'deletionPending',
+        'caregiverSharingEnabled', 'caregiverAccessEpoch', 'role'
+      ]);
+    }
+
+    function accountRole(data) {
+      return 'role' in data ? data.role : 'elder';
+    }
+    function validAccountRole(data) {
+      return accountRole(data) in ['elder', 'caregiver']
+        && (accountRole(data) != 'caregiver'
+            || (data.currentMode == 0 && data.consentGiven == false));
+    }
+
+    // La simulación no puede habilitar acceso real del cuidador.
+    // Se admiten documentos anteriores, sin estos campos.
+    function validSharingFields(data) {
+      return (!('caregiverSharingEnabled' in data)
+              || data.caregiverSharingEnabled == false)
+        && (!('caregiverAccessEpoch' in data)
+              || (data.caregiverAccessEpoch is int
+                  && data.caregiverAccessEpoch >= 0));
+    }
+
+    function validSharingUpdate() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let previousEpoch = 'caregiverAccessEpoch' in before
+        ? before.caregiverAccessEpoch : 0;
+      let nextEpoch = 'caregiverAccessEpoch' in after
+        ? after.caregiverAccessEpoch : 0;
+      let returnsToPersonal = before.currentMode == 3 && after.currentMode == 2;
+      let statePath = /databases/$(database)/documents/caregiver_invite_state/$(request.auth.uid);
+      return validSharingFields(after)
+        && (!returnsToPersonal || !exists(statePath) || get(statePath).data.token == null)
+        && nextEpoch == previousEpoch + (returnsToPersonal ? 1 : 0)
+        && (!returnsToPersonal
+            || ('caregiverSharingEnabled' in after
+                && after.caregiverSharingEnabled == false));
+    }
+
+    match /users/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list: if false;
+
+      allow create: if signedIn() && request.auth.uid == uid
+        && allowedUserKeys(request.resource.data)
+        && validAccountRole(request.resource.data)
+        && validSharingFields(request.resource.data)
+        && (!('caregiverAccessEpoch' in request.resource.data)
+            || request.resource.data.caregiverAccessEpoch == 0)
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 80
+        && request.resource.data.currentMode == 0
+        && request.resource.data.consentGiven == false;
+
+      allow update: if signedIn() && request.auth.uid == uid
+        && allowedUserKeys(request.resource.data)
+        && validAccountRole(request.resource.data)
+        && accountRole(request.resource.data) == accountRole(resource.data)
+        && validSharingUpdate()
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 80
+        && (request.resource.data.currentMode in [0, 2, 3]
+            || request.resource.data.currentMode == resource.data.currentMode)
+        && request.resource.data.consentGiven is bool
+        && (!request.resource.data.get('deletionPending', false)
+            || request.resource.data.consentGiven == false)
+        && (request.resource.data.consentGiven == true
+              ? (request.resource.data.consentDate == request.time
+                 || (resource.data.consentGiven == true
+                     && request.resource.data.consentDate == resource.data.consentDate))
+              : consentDateEmpty(request.resource.data))
+        && (!('disclaimerAcceptedAt' in resource.data)
+            || request.resource.data.disclaimerAcceptedAt
+               == resource.data.disclaimerAcceptedAt);
+
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    function deletingOwnData() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return signedIn() && exists(path)
+        && get(path).data.get('deletionPending', false) == true;
+    }
+
+    // Se conservan las reglas de comportamiento facilitadas por el equipo.
+    match /cognitive_profiles/{uuid} {
+      allow get, delete: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && hasNoIdentityFields(request.resource.data);
+      allow update: if signedIn()
+        && hasNoIdentityFields(request.resource.data)
+        && (!resource.data.get('privacyDeleted', false)
+            || request.resource.data.get('privacyDeleted', false) == true);
+
+      function profileAcceptsSessions() {
+        let path = /databases/$(database)/documents/cognitive_profiles/$(uuid);
+        return !exists(path) || get(path).data.get('privacyDeleted', false) == false;
+      }
+      match /sessions/{sessionId} {
+        allow read, delete: if signedIn();
+        allow create: if signedIn()
+          && profileAcceptsSessions()
+          && request.resource.data.uuid == uuid
+          && hasNoIdentityFields(request.resource.data);
+        allow update: if signedIn()
+          && profileAcceptsSessions()
+          && resource.data.uuid == uuid
+          && request.resource.data.uuid == uuid
+          && hasNoIdentityFields(request.resource.data);
+      }
+    }
+
+    match /alerts/{alertId} {
+      allow read: if signedIn()
+        && resource.data.caregiverUID == request.auth.uid;
+      allow delete: if deletingOwnData()
+        && resource.data.caregiverUID == request.auth.uid;
+      allow create, update: if false;
+    }
+
+    // F8: solo invitaciones y vínculos de identidad. Sin UUID cognitivos.
+    function userData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+    function adult(uid) {
+      return accountRole(userData(uid)) == 'elder';
+    }
+    function caregiver(uid) {
+      return accountRole(userData(uid)) == 'caregiver';
+    }
+    function accessEpoch(uid) {
+      let data = userData(uid);
+      return 'caregiverAccessEpoch' in data ? data.caregiverAccessEpoch : 0;
+    }
+    function ownsToken(token) {
+      let path = /databases/$(database)/documents/caregiver_invite_state/$(request.auth.uid);
+      return exists(path) && get(path).data.token == token;
+    }
+    function validInvite(token, data) {
+      let statePath = /databases/$(database)/documents/caregiver_invite_state/$(data.adultUID);
+      return data.status == 'active'
+        && !userData(data.adultUID).get('deletionPending', false)
+        && data.validForSeconds == 600
+        && request.time < data.createdAt + duration.value(600, 's')
+        && userData(data.adultUID).currentMode == 3
+        && accessEpoch(data.adultUID) == data.epoch
+        && exists(statePath) && get(statePath).data.token == token;
+    }
+    function previousInviteRetired(uid) {
+      let path = /databases/$(database)/documents/caregiver_invite_state/$(uid);
+      let previous = exists(path) ? get(path).data.token : null;
+      let key = previous == null ? 'none' : previous;
+      let invitePath = /databases/$(database)/documents/caregiver_invites/$(key);
+      let linkPath = /databases/$(database)/documents/caregiver_links/$(key);
+      return previous == null
+        || (!exists(invitePath)
+            && (!exists(linkPath) || getAfter(linkPath).data.status == 'revoked'))
+        || (getAfter(invitePath).data.status == 'cancelled'
+            && (!exists(linkPath) || getAfter(linkPath).data.status == 'revoked'));
+    }
+
+    match /caregiver_invite_state/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid && adult(uid);
+      allow list: if false;
+      allow delete: if deletingOwnData() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid && adult(uid)
+        && request.resource.data.keys().hasOnly(['token'])
+        && previousInviteRetired(uid)
+        && (request.resource.data.token == null
+          || (request.resource.data.token is string
+            && request.resource.data.token.matches('^[A-Za-z0-9_-]{43}$')
+            && getAfter(/databases/$(database)/documents/caregiver_invites/$(request.resource.data.token)).data.adultUID == uid
+            && getAfter(/databases/$(database)/documents/caregiver_invites/$(request.resource.data.token)).data.createdAt == request.time
+            && getAfter(/databases/$(database)/documents/caregiver_invites/$(request.resource.data.token)).data.status == 'active'));
+    }
+
+    match /caregiver_invites/{token} {
+      allow list: if signedIn() && (
+        resource.data.adultUID == request.auth.uid
+        || resource.data.get('usedBy', '') == request.auth.uid);
+      allow delete: if deletingOwnData() && (
+        resource.data.adultUID == request.auth.uid
+        || resource.data.get('usedBy', '') == request.auth.uid);
+      allow get: if signedIn() && (
+        !exists(/databases/$(database)/documents/caregiver_invites/$(token))
+          ? ownsToken(token)
+          : (resource.data.adultUID == request.auth.uid
+            || (caregiver(request.auth.uid)
+              && (validInvite(token, resource.data)
+                || ('usedBy' in resource.data && resource.data.usedBy == request.auth.uid)))));
+      allow create: if !deletingOwnData() && signedIn() && adult(request.auth.uid)
+        && token.matches('^[A-Za-z0-9_-]{43}$')
+        && request.resource.data.keys().hasOnly([
+          'adultUID', 'createdAt', 'validForSeconds', 'epoch', 'status', 'consentVersion'
+        ])
+        && request.resource.data.adultUID == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.validForSeconds == 600
+        && request.resource.data.epoch == accessEpoch(request.auth.uid)
+        && request.resource.data.status == 'active'
+        && request.resource.data.consentVersion in ['caregiver-link-v1', 'caregiver-link-v2']
+        && userData(request.auth.uid).currentMode == 3
+        && getAfter(/databases/$(database)/documents/caregiver_invite_state/$(request.auth.uid)).data.token == token;
+      allow update: if signedIn() && (
+        (resource.data.adultUID == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          && request.resource.data.status == 'cancelled'
+          && (resource.data.status != 'used'
+            || getAfter(/databases/$(database)/documents/caregiver_links/$(token)).data.status == 'revoked'))
+        || (caregiver(request.auth.uid)
+          && request.auth.uid != resource.data.adultUID
+          && validInvite(token, resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'usedBy', 'usedAt'])
+          && request.resource.data.status == 'used'
+          && request.resource.data.usedBy == request.auth.uid
+          && request.resource.data.usedAt == request.time
+          && getAfter(/databases/$(database)/documents/caregiver_links/$(token)).data.caregiverUID == request.auth.uid
+          && getAfter(/databases/$(database)/documents/caregiver_links/$(token)).data.status == 'active'));
+    }
+
+    match /caregiver_links/{token} {
+      allow list: if signedIn() && (
+        resource.data.adultUID == request.auth.uid
+        || resource.data.caregiverUID == request.auth.uid);
+      allow delete: if deletingOwnData() && (
+        resource.data.adultUID == request.auth.uid
+        || resource.data.caregiverUID == request.auth.uid);
+      allow get: if signedIn() && (
+        exists(/databases/$(database)/documents/caregiver_links/$(token))
+          ? (resource.data.adultUID == request.auth.uid || resource.data.caregiverUID == request.auth.uid)
+          : (ownsToken(token) || (caregiver(request.auth.uid)
+            && validInvite(token, get(/databases/$(database)/documents/caregiver_invites/$(token)).data))));
+      allow create: if !deletingOwnData() && signedIn() && caregiver(request.auth.uid)
+        && request.resource.data.keys().hasOnly(['adultUID', 'caregiverUID', 'epoch', 'linkedAt', 'status', 'caregiverName'])
+        && (!('caregiverName' in request.resource.data)
+          || (request.resource.data.caregiverName is string
+            && request.resource.data.caregiverName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.displayName))
+        && request.resource.data.caregiverUID == request.auth.uid
+        && request.resource.data.status == 'active'
+        && request.resource.data.linkedAt == request.time
+        && request.resource.data.adultUID == get(/databases/$(database)/documents/caregiver_invites/$(token)).data.adultUID
+        && request.resource.data.epoch == get(/databases/$(database)/documents/caregiver_invites/$(token)).data.epoch
+        && validInvite(token, get(/databases/$(database)/documents/caregiver_invites/$(token)).data)
+        && getAfter(/databases/$(database)/documents/caregiver_invites/$(token)).data.status == 'used'
+        && getAfter(/databases/$(database)/documents/caregiver_invites/$(token)).data.usedBy == request.auth.uid
+        && getAfter(/databases/$(database)/documents/caregiver_link_state/$(request.auth.uid)).data.token == token;
+      allow update: if signedIn() && resource.data.adultUID == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status == 'revoked';
+      // El cuidador puede dejar de ser cuidador: solo cierra SU vínculo activo
+      // y deja constancia de que fue él (el adulto mayor recibe un aviso).
+      allow update: if signedIn()
+        && resource.data.status == 'active'
+        && resource.data.caregiverUID == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'revokedBy', 'revokedAt'])
+        && request.resource.data.status == 'revoked'
+        && request.resource.data.revokedBy == 'caregiver'
+        && request.resource.data.revokedAt == request.time;
+      // El cuidador publica solo el nombre de su propia cuenta en el vínculo.
+      allow update: if signedIn()
+        && resource.data.status == 'active'
+        && resource.data.caregiverUID == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['caregiverName'])
+        && request.resource.data.caregiverName is string
+        && request.resource.data.caregiverName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.displayName;
+    }
+    match /caregiver_link_state/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid && caregiver(uid);
+      allow list: if false;
+      allow delete: if deletingOwnData() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid && caregiver(uid)
+        && request.resource.data.keys().hasOnly(['token'])
+        && request.resource.data.token is string
+        && getAfter(/databases/$(database)/documents/caregiver_links/$(request.resource.data.token)).data.caregiverUID == uid
+        && getAfter(/databases/$(database)/documents/caregiver_links/$(request.resource.data.token)).data.status == 'active'
+        && getAfter(/databases/$(database)/documents/caregiver_invites/$(request.resource.data.token)).data.usedAt == request.time
+        && getAfter(/databases/$(database)/documents/caregiver_invites/$(request.resource.data.token)).data.usedBy == uid;
+    }
+
+    function activeSummaryLink(token, link) {
+      return link.status == 'active'
+        && userData(link.adultUID).currentMode == 3
+        && accessEpoch(link.adultUID) == link.epoch
+        && get(/databases/$(database)/documents/caregiver_invite_state/$(link.adultUID)).data.token == token;
+    }
+
+    function knownSummaryGame(game) {
+      return game == null || (game is string && game.matches(
+        '^(memorice_clasico|memorice_secuencias|que_cambio|recuerde_numero|toca_correcto|contador_objetos|secuencias_colores|trazado_guiado|conecta_puntos|colorear_contorno|buscar_en_lista|ampliar_imagen|arrastrar_elementos|deslizar_imagenes|toque_preciso)$'));
+    }
+
+    function optionalCount(value) {
+      return value == null || value is int;
+    }
+
+    function optionalScore(value) {
+      return value == null || value is number;
+    }
+
+    function validSummaryArea(area) {
+      return area is map
+        && area.keys().hasOnly(['count', 'metric', 'value', 'total', 'trend', 'comparable', 'level', 'average',
+          'latestGame', 'latestLevel', 'latestAt', 'attempts', 'errorsPct', 'figures',
+          'supports', 'comparisonGame', 'practiceDays', 'firstScore', 'lastScore'])
+        && knownSummaryGame(area.get('latestGame', null))
+        && knownSummaryGame(area.get('comparisonGame', null))
+        && area.get('latestLevel', null) in [null, 1, 2, 3]
+        && (area.get('latestAt', null) == null || area.latestAt is timestamp)
+        && optionalCount(area.get('attempts', null)) && optionalCount(area.get('figures', null))
+        && optionalCount(area.get('supports', null)) && optionalScore(area.get('errorsPct', null))
+        && area.get('practiceDays', 0) is int
+        && optionalScore(area.get('firstScore', null)) && optionalScore(area.get('lastScore', null))
+        && area.count is int && area.count >= 0
+        && area.metric in ['none', 'accuracy', 'response', 'precision', 'completed']
+        && area.value is int && area.value >= 0
+        && area.total is int && area.total >= 0
+        && area.comparable is int && area.comparable >= 0 && area.comparable <= area.count
+        && (area.level == null || area.level in [1, 2, 3])
+        && (area.average == null || (area.average is number && area.average >= 0 && area.average <= 100
+          && area.level != null && area.comparable > 0))
+        && (area.trend == 'insufficient' || (area.comparable >= 5 && area.average != null))
+        && area.trend in ['insufficient', 'improving', 'stable', 'attention', 'review'];
+    }
+
+    match /caregiver_summaries/{token} {
+      function link() {
+        return get(/databases/$(database)/documents/caregiver_links/$(token)).data;
+      }
+      allow list: if false;
+      allow get: if signedIn()
+        && !userData(link().adultUID).get('deletionPending', false)
+        && activeSummaryLink(token, link()) && (
+        request.auth.uid == link().adultUID ||
+        (request.auth.uid == link().caregiverUID
+          && get(/databases/$(database)/documents/caregiver_link_state/$(request.auth.uid)).data.token == token));
+      allow delete: if signedIn() && (
+        request.auth.uid == link().adultUID
+        || (deletingOwnData() && request.auth.uid == link().caregiverUID));
+      function validPublication(data, currentLink) {
+        return request.auth.uid == currentLink.adultUID
+          && activeSummaryLink(token, currentLink)
+          && get(/databases/$(database)/documents/caregiver_invites/$(token)).data.consentVersion == 'caregiver-link-v2'
+          && data.keys().hasOnly(['publishedAt', 'lastPracticeAt', 'memoria', 'atencion', 'praxias'])
+          && data.publishedAt == request.time
+          && (data.lastPracticeAt == null
+            || (data.lastPracticeAt is timestamp && data.lastPracticeAt <= request.time))
+          && validSummaryArea(data.memoria)
+          && validSummaryArea(data.atencion)
+          && validSummaryArea(data.praxias);
+      }
+      allow create, update: if signedIn() && validPublication(request.resource.data, link());
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
